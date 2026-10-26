@@ -1,131 +1,232 @@
-import React from 'react';
+import { useState } from 'react';
+import {
+  Filter,
+  SlidersHorizontal,
+  RotateCcw,
+  ArrowUpDown,
+  Search,
+} from 'lucide-react';
 import { useProductStore } from '../store/productStore';
-import { useCategoriesQuery } from '../hooks/useProductQueries';
-import { Search, RotateCcw, ArrowUpDown, X, Filter } from 'lucide-react';
+import { PRODUCT_CATEGORIES } from '../../../types/product';
 
-export const ProductFilters: React.FC = () => {
+export const ProductFilters = () => {
   const {
-    searchQuery,
-    setSearchQuery,
     selectedCategory,
     setSelectedCategory,
+    minPrice,
+    setMinPrice,
+    maxPrice,
+    setMaxPrice,
+    inStockOnly,
+    setInStockOnly,
     sortBy,
-    order,
+    sortOrder,
     setSort,
     resetFilters,
+    searchQuery,
+    setSearchQuery,
   } = useProductStore();
 
-  const { data: categories = [], isLoading: isLoadingCategories } = useCategoriesQuery();
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (!val) {
-      setSort('', 'asc');
-      return;
-    }
-    const [field, sortOrder] = val.split(':');
-    setSort(field, sortOrder as 'asc' | 'desc');
-  };
+  // Count active filters
+  const activeCount = [
+    selectedCategory !== 'all',
+    minPrice !== undefined && minPrice > 0,
+    maxPrice !== undefined && maxPrice > 0,
+    inStockOnly,
+    searchQuery.trim() !== '',
+    sortBy !== 'createdAt' || sortOrder !== 'desc',
+  ].filter(Boolean).length;
 
-  const currentSortValue = sortBy ? `${sortBy}:${order}` : '';
-  const hasActiveFilters = searchQuery !== '' || selectedCategory !== 'all' || sortBy !== '';
+  const sortOptions = [
+    { label: 'Date Added', value: 'createdAt' },
+    { label: 'Price', value: 'price' },
+    { label: 'Title / Name', value: 'title' },
+    { label: 'Stock Level', value: 'stock' },
+    { label: 'Customer Rating', value: 'rating' },
+  ];
 
   return (
-    <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 sm:p-5 mb-6 backdrop-blur-md">
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-        {/* Search Input */}
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+    <div className="space-y-4 mb-6">
+      {/* Category Pills Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none scroll-smooth">
+        <button
+          type="button"
+          onClick={() => setSelectedCategory('all')}
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+            selectedCategory === 'all'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+              : 'glass-card text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          All Categories
+        </button>
+        {PRODUCT_CATEGORIES.map((cat) => {
+          const isSelected = selectedCategory === cat;
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                isSelected
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'glass-card text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {cat}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Filter Toolbar */}
+      <div className="glass-panel rounded-2xl p-4 border border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+        {/* Mobile Search Bar */}
+        <div className="w-full md:hidden relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search products by title, description or brand..."
-            className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+            placeholder="Search products..."
+            className="w-full bg-slate-900 text-sm text-slate-100 placeholder-slate-400 pl-9 pr-4 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500"
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors p-1"
-              aria-label="Clear search"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
 
-        {/* Filter Controls Row */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
-          {/* Category Dropdown */}
-          <div className="relative min-w-[170px] flex-1 sm:flex-initial">
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all">
-              <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                disabled={isLoadingCategories}
-                className="w-full bg-transparent text-sm text-slate-200 focus:outline-none cursor-pointer capitalize"
-              >
-                <option value="all" className="bg-slate-900 text-slate-200">
-                  All Categories
-                </option>
-                {categories.map((cat) => (
-                  <option
-                    key={cat.slug}
-                    value={cat.slug}
-                    className="bg-slate-900 text-slate-200 capitalize"
-                  >
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* Sort selector */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium mr-1">
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            <span>Sort by:</span>
           </div>
 
-          {/* Sort Dropdown */}
-          <div className="relative min-w-[170px] flex-1 sm:flex-initial">
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all">
-              <ArrowUpDown className="w-4 h-4 text-slate-400 shrink-0" />
-              <select
-                value={currentSortValue}
-                onChange={handleSortChange}
-                className="w-full bg-transparent text-sm text-slate-200 focus:outline-none cursor-pointer"
-              >
-                <option value="" className="bg-slate-900 text-slate-200">
-                  Featured (Default)
-                </option>
-                <option value="price:asc" className="bg-slate-900 text-slate-200">
-                  Price: Low to High
-                </option>
-                <option value="price:desc" className="bg-slate-900 text-slate-200">
-                  Price: High to Low
-                </option>
-                <option value="rating:desc" className="bg-slate-900 text-slate-200">
-                  Highest Rated
-                </option>
-                <option value="title:asc" className="bg-slate-900 text-slate-200">
-                  Alphabetical (A - Z)
-                </option>
-                <option value="title:desc" className="bg-slate-900 text-slate-200">
-                  Alphabetical (Z - A)
-                </option>
-              </select>
-            </div>
-          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSort(e.target.value, sortOrder)}
+            className="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+          >
+            {sortOptions.map((opt) => (
+              <option key={opt.value} value={opt.value} className="bg-slate-900 text-slate-200">
+                {opt.label}
+              </option>
+            ))}
+          </select>
 
-          {/* Reset button */}
-          {hasActiveFilters && (
+          {/* Asc / Desc Toggle */}
+          <button
+            type="button"
+            onClick={() => setSort(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-xs sm:text-sm font-medium text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+            title={`Toggle order: current is ${sortOrder.toUpperCase()}`}
+          >
+            {sortOrder === 'asc' ? '↑ Ascending' : '↓ Descending'}
+          </button>
+        </div>
+
+        {/* In-Stock & Advanced Filters Toggle */}
+        <div className="flex items-center gap-3">
+          {/* In Stock toggle */}
+          <label className="flex items-center gap-2 cursor-pointer select-none text-xs sm:text-sm font-medium text-slate-300">
+            <div
+              onClick={() => setInStockOnly(!inStockOnly)}
+              className={`w-9 h-5 rounded-full transition-colors relative flex items-center p-0.5 cursor-pointer ${
+                inStockOnly ? 'bg-indigo-600' : 'bg-slate-800'
+              }`}
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                  inStockOnly ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </div>
+            <span>In Stock Only</span>
+          </label>
+
+          {/* Toggle Price Filter Panel */}
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+              showAdvanced || (minPrice !== undefined || maxPrice !== undefined)
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                : 'bg-slate-900 border border-slate-700/80 text-slate-300 hover:text-white'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Price Range</span>
+          </button>
+
+          {/* Reset Filters button */}
+          {activeCount > 0 && (
             <button
+              type="button"
               onClick={resetFilters}
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-sm border border-slate-700/60 transition-all cursor-pointer"
-              title="Reset all active filters"
+              className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition-all"
+              title="Reset all filters"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset</span>
+              <span>Reset ({activeCount})</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* Advanced Filter Collapsible Panel (Price Range) */}
+      {showAdvanced && (
+        <div className="glass-card rounded-2xl p-4 border border-indigo-500/20 animate-fade-in flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-indigo-400" />
+            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              Price Filter ($ USD)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
+              <input
+                type="number"
+                min="0"
+                placeholder="Min Price"
+                value={minPrice !== undefined ? minPrice : ''}
+                onChange={(e) =>
+                  setMinPrice(e.target.value === '' ? undefined : Number(e.target.value))
+                }
+                className="w-28 bg-slate-900 text-xs sm:text-sm pl-6 pr-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <span className="text-slate-500 text-xs">to</span>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
+              <input
+                type="number"
+                min="0"
+                placeholder="Max Price"
+                value={maxPrice !== undefined ? maxPrice : ''}
+                onChange={(e) =>
+                  setMaxPrice(e.target.value === '' ? undefined : Number(e.target.value))
+                }
+                className="w-28 bg-slate-900 text-xs sm:text-sm pl-6 pr-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {(minPrice !== undefined || maxPrice !== undefined) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMinPrice(undefined);
+                  setMaxPrice(undefined);
+                }}
+                className="text-xs text-slate-400 hover:text-slate-200 underline"
+              >
+                Clear Price
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

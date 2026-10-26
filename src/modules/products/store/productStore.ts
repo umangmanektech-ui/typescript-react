@@ -11,8 +11,11 @@ interface ProductStore {
   // Query & Filter states
   searchQuery: string;
   selectedCategory: string;
+  minPrice: number | undefined;
+  maxPrice: number | undefined;
+  inStockOnly: boolean;
   sortBy: string;
-  order: 'asc' | 'desc';
+  sortOrder: 'asc' | 'desc';
   page: number;
   limit: number;
   viewMode: 'grid' | 'table';
@@ -27,10 +30,13 @@ interface ProductStore {
   // Feedback toast
   toast: ToastState | null;
 
-  // Actions
+  // Filter actions
   setSearchQuery: (query: string) => void;
   setSelectedCategory: (category: string) => void;
-  setSort: (sortBy: string, order: 'asc' | 'desc') => void;
+  setMinPrice: (min: number | undefined) => void;
+  setMaxPrice: (max: number | undefined) => void;
+  setInStockOnly: (inStockOnly: boolean) => void;
+  setSort: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
   setPage: (page: number) => void;
   setLimit: (limit: number) => void;
   setViewMode: (mode: 'grid' | 'table') => void;
@@ -54,10 +60,13 @@ interface ProductStore {
 export const useProductStore = create<ProductStore>((set) => ({
   searchQuery: '',
   selectedCategory: 'all',
-  sortBy: '',
-  order: 'asc',
+  minPrice: undefined,
+  maxPrice: undefined,
+  inStockOnly: false,
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
   page: 1,
-  limit: 12,
+  limit: 10,
   viewMode: 'grid',
 
   isCreateModalOpen: false,
@@ -70,7 +79,10 @@ export const useProductStore = create<ProductStore>((set) => ({
 
   setSearchQuery: (query) => set({ searchQuery: query, page: 1 }),
   setSelectedCategory: (category) => set({ selectedCategory: category, page: 1 }),
-  setSort: (sortBy, order) => set({ sortBy, order, page: 1 }),
+  setMinPrice: (minPrice) => set({ minPrice, page: 1 }),
+  setMaxPrice: (maxPrice) => set({ maxPrice, page: 1 }),
+  setInStockOnly: (inStockOnly) => set({ inStockOnly, page: 1 }),
+  setSort: (sortBy, sortOrder) => set({ sortBy, sortOrder, page: 1 }),
   setPage: (page) => set({ page }),
   setLimit: (limit) => set({ limit, page: 1 }),
   setViewMode: (viewMode) => set({ viewMode }),
@@ -78,8 +90,11 @@ export const useProductStore = create<ProductStore>((set) => ({
     set({
       searchQuery: '',
       selectedCategory: 'all',
-      sortBy: '',
-      order: 'asc',
+      minPrice: undefined,
+      maxPrice: undefined,
+      inStockOnly: false,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
       page: 1,
     }),
 

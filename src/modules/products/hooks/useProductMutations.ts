@@ -1,70 +1,61 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import productService from '../../../services/productService';
-import type { ApiErrorResponse } from '../../../types/api';
-import type { CreateProductInput, UpdateProductInput } from '../../../types/product';
+import { productService } from '../../../services/productService';
+import { productKeys } from './useProductQueries';
 import { useProductStore } from '../store/productStore';
-import { PRODUCT_QUERY_KEYS } from './useProductQueries';
+import type { CreateProductInput, UpdateProductInput } from '../../../types/product';
 
-/**
- * Mutation hook to create a new product
- */
-export const useCreateProductMutation = () => {
+export const useCreateProduct = () => {
   const queryClient = useQueryClient();
-  const { closeCreateModal, showToast } = useProductStore();
+  const { showToast, closeCreateModal } = useProductStore();
 
   return useMutation({
-    mutationFn: (newProduct: CreateProductInput) => productService.createProduct(newProduct),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: PRODUCT_QUERY_KEYS.all });
+    mutationFn: (data: CreateProductInput) => productService.createProduct(data),
+    onSuccess: (createdProduct) => {
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: productKeys.stats() });
+      showToast(`Product "${createdProduct.title}" created successfully!`, 'success');
       closeCreateModal();
-      showToast(`Product "${data.title}" created successfully!`, 'success');
     },
-    onError: (error: ApiErrorResponse) => {
-      showToast(error?.response?.data?.message || 'Failed to create product', 'error');
+    onError: (error: Error) => {
+      showToast(error.message || 'Failed to create product', 'error');
     },
   });
 };
 
-/**
- * Mutation hook to update an existing product
- */
-export const useUpdateProductMutation = () => {
+export const useUpdateProduct = () => {
   const queryClient = useQueryClient();
-  const { closeEditModal, showToast } = useProductStore();
+  const { showToast, closeEditModal } = useProductStore();
 
   return useMutation({
-    mutationFn: (data: UpdateProductInput) =>
-      productService.updateProduct(data.id, data),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: PRODUCT_QUERY_KEYS.all });
+    mutationFn: ({ id, data }: { id: string; data: UpdateProductInput }) =>
+      productService.updateProduct(id, data),
+    onSuccess: (updatedProduct) => {
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: productKeys.detail(updatedProduct._id) });
+      queryClient.invalidateQueries({ queryKey: productKeys.stats() });
+      showToast(`Product "${updatedProduct.title}" updated successfully!`, 'success');
       closeEditModal();
-      showToast(`Product "${data.title}" updated successfully!`, 'success');
     },
-    onError: (error: ApiErrorResponse) => {
-      showToast(error?.response?.data?.message || 'Failed to update product', 'error');
+    onError: (error: Error) => {
+      showToast(error.message || 'Failed to update product', 'error');
     },
   });
 };
 
-/**
- * Mutation hook to delete a product
- */
-export const useDeleteProductMutation = () => {
+export const useDeleteProduct = () => {
   const queryClient = useQueryClient();
-  const { closeDeleteModal, showToast, selectedProduct } = useProductStore();
+  const { showToast, closeDeleteModal } = useProductStore();
 
   return useMutation({
-    mutationFn: (id: number) => productService.deleteProduct(id),
+    mutationFn: (id: string) => productService.deleteProduct(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PRODUCT_QUERY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: productKeys.stats() });
+      showToast('Product removed successfully!', 'success');
       closeDeleteModal();
-      showToast(
-        `Product "${selectedProduct?.title || 'Item'}" deleted successfully!`,
-        'info'
-      );
     },
-    onError: (error: ApiErrorResponse) => {
-      showToast(error?.response?.data?.message || 'Failed to delete product', 'error');
+    onError: (error: Error) => {
+      showToast(error.message || 'Failed to delete product', 'error');
     },
   });
 };

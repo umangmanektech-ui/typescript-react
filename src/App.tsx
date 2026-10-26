@@ -1,17 +1,21 @@
+import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ProductsPage from './modules/products/pages/ProductsPage';
+import { ProductsPage } from './modules/products/pages/ProductsPage';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 1000 * 60 * 3, // 3 minutes
-    },
-  },
-});
+export function App() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+            staleTime: 1000 * 30, // 30s
+          },
+        },
+      })
+  );
 
-function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ProductsPage />

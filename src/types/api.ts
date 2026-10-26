@@ -1,29 +1,25 @@
-import type { AxiosError } from "axios";
-
-export interface ApiResponse<T> {
-  data: T;
+export interface ApiResponse<T = unknown> {
+  success?: boolean;
+  status?: string;
   message?: string;
-  status: number;
+  data?: T;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
-export type ApiErrorResponse = AxiosError<ApiError>;
+export interface ApiHealthResponse {
+  status: string;
+  uptime?: number;
+  timestamp?: string;
+  message?: string;
+}
 
-export interface ApiError {
+export interface ApiErrorResponse {
+  success?: boolean;
   message: string;
-  status: number;
+  errors?: Array<{ field?: string; message: string }> | string[];
 }
-
-export interface PaginationParams {
-  limit?: number;
-  skip?: number;
-  sortBy?: string;
-  order?: 'asc' | 'desc';
-}
-
-// export interface PaginatedResponse<T> {
-//   items?: T[];
-//   total: number;
-//   skip: number;
-//   limit: number;
-//   [key: string]: any;
-// }

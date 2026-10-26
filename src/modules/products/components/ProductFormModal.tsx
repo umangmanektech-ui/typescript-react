@@ -1,40 +1,32 @@
-import { yupResolver } from '@hookform/resolvers/yup';
-import { Image as ImageIcon, Loader2, Sparkles, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import {
-  useCreateProductMutation,
-  useUpdateProductMutation,
-} from '../hooks/useProductMutations';
-import { useCategoriesQuery } from '../hooks/useProductQueries';
-import type { ProductFormValues } from '../schema/productSchema';
-import { productValidationSchema } from '../schema/productSchema';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { X, Sparkles, Loader2 } from 'lucide-react';
+import { productValidationSchema, type ProductFormValues } from '../schema/productSchema';
 import { useProductStore } from '../store/productStore';
+import { useCreateProduct, useUpdateProduct } from '../hooks/useProductMutations';
+import { PRODUCT_CATEGORIES } from '../../../types/product';
 
-export const ProductFormModal: React.FC = () => {
+export const ProductFormModal = () => {
   const {
     isCreateModalOpen,
     isEditModalOpen,
-    selectedProduct,
     closeCreateModal,
     closeEditModal,
+    selectedProduct,
   } = useProductStore();
 
   const isOpen = isCreateModalOpen || isEditModalOpen;
   const isEditing = Boolean(isEditModalOpen && selectedProduct);
 
-  const { data: categories = [] } = useCategoriesQuery();
-  const createMutation = useCreateProductMutation();
-  const updateMutation = useUpdateProductMutation();
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const createMutation = useCreateProduct();
+  const updateMutation = useUpdateProduct();
 
   const {
     register,
     handleSubmit,
-    reset,
-    watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<ProductFormValues>({
     resolver: yupResolver(productValidationSchema),
@@ -42,313 +34,270 @@ export const ProductFormModal: React.FC = () => {
       title: '',
       description: '',
       price: 0,
-      discountPercentage: 0,
-      stock: 0,
-      brand: '',
-      category: '',
-      thumbnail: '',
+      stock: 10,
+      sku: '',
+      category: 'Electronics',
+      rating: 4.5,
+      tags: '',
     },
   });
 
-  const thumbnailValue = watch('thumbnail');
-  const [previewError, setPreviewError] = useState(false);
-
+  // Pre-fill form on edit or reset on create
   useEffect(() => {
-    if (isOpen) {
-      if (isEditing && selectedProduct) {
-        reset({
-          title: selectedProduct.title || '',
-          description: selectedProduct.description || '',
-          price: selectedProduct.price || 0,
-          discountPercentage: selectedProduct.discountPercentage || 0,
-          stock: selectedProduct.stock || 0,
-          brand: selectedProduct.brand || '',
-          category: selectedProduct.category || '',
-          thumbnail: selectedProduct.thumbnail || '',
-        });
-      } else {
-        reset({
-          title: '',
-          description: '',
-          price: 0,
-          discountPercentage: 0,
-          stock: 10,
-          brand: '',
-          category: categories[0]?.slug || 'beauty',
-          thumbnail: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=60',
-        });
-      }
-      setPreviewError(false);
+    if (isEditing && selectedProduct) {
+      reset({
+        title: selectedProduct.title,
+        description: selectedProduct.description,
+        price: selectedProduct.price,
+        stock: selectedProduct.stock,
+        sku: selectedProduct.sku || '',
+        category: selectedProduct.category,
+        rating: selectedProduct.rating || 4.5,
+        tags: selectedProduct.tags?.join(', ') || '',
+      });
+    } else if (isCreateModalOpen) {
+      reset({
+        title: '',
+        description: '',
+        price: 0,
+        stock: 10,
+        sku: '',
+        category: 'Electronics',
+        rating: 4.5,
+        tags: '',
+      });
     }
-  }, [isOpen, isEditing, selectedProduct, reset, categories]);
+  }, [isEditing, selectedProduct, isCreateModalOpen, reset]);
 
   if (!isOpen) return null;
 
   const handleClose = () => {
-    if (isPending) return;
-    if (isEditing) {
-      closeEditModal();
+    if (isEditing) closeEditModal();
+    else closeCreateModal();
+  };
+
+  const handleGenerateSKU = () => {
+    const randomPart = Math.random().toString(36).substring(2, 7).toUpperCase();
+    setValue('sku', `PRD-${randomPart}`);
+  };
+
+  const onSubmit = (values: ProductFormValues) => {
+    const tagsArray = values.tags
+      ? values.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
+
+    const payload = {
+      title: values.title.trim(),
+      description: values.description.trim(),
+      price: Number(values.price),
+      category: values.category,
+      stock: Number(values.stock),
+      sku: values.sku.trim(),
+      rating: values.rating ? Number(values.rating) : 4.5,
+      tags: tagsArray,
+    };
+
+    if (isEditing && selectedProduct) {
+      const targetId = selectedProduct._id || selectedProduct.id!;
+      updateMutation.mutate({ id: targetId, data: payload });
     } else {
-      closeCreateModal();
+      createMutation.mutate(payload);
     }
   };
 
-  const onSubmit = (data: ProductFormValues) => {
-    if (isEditing && selectedProduct) {
-      updateMutation.mutate({
-        id: selectedProduct.id,
-        title: data.title,
-        description: data.description,
-        price: Number(data.price),
-        discountPercentage: data.discountPercentage ? Number(data.discountPercentage) : 0,
-        stock: Number(data.stock),
-        brand: data.brand || '',
-        category: data.category,
-        thumbnail: data.thumbnail || undefined,
-      }); 
-    } else {
-      createMutation.mutate({
-        title: data.title,
-        description: data.description,
-        price: Number(data.price),
-        discountPercentage: data.discountPercentage ? Number(data.discountPercentage) : 0,
-        stock: Number(data.stock),
-        brand: data.brand || '',
-        category: data.category,
-        thumbnail: data.thumbnail || undefined,
-      });
-    }
-  };
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden my-8">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">
-                {isEditing ? 'Edit Product' : 'Create New Product'}
-              </h2>
-              <p className="text-xs text-slate-400">
-                {isEditing
-                  ? `Updating product #${selectedProduct?.id}`
-                  : 'Add a new product to the catalog via DummyJSON'}
-              </p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-2xl glass-panel rounded-3xl border border-slate-700/80 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              {isEditing ? 'Edit Product' : 'Add New Product'}
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isEditing
+                ? 'Update product details in catalog'
+                : 'Fill in details to create a new product item'}
+            </p>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            disabled={isPending}
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          {/* Row 1: Title & Brand */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
-                Product Title <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                {...register('title')}
-                placeholder="e.g. Wireless Noise-Cancelling Headphones"
-                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
-                  errors.title ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800 focus:border-indigo-500'
-                } text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition-all`}
-              />
-              {errors.title && (
-                <p className="text-xs text-rose-400 font-medium">{errors.title.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">Brand</label>
-              <input
-                type="text"
-                {...register('brand')}
-                placeholder="e.g. Sony"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition-all"
-              />
-            </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-6">
+          {/* Title */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              Product Title <span className="text-rose-400">*</span>
+            </label>
+            <input
+              type="text"
+              {...register('title')}
+              placeholder="e.g. Logitech MX Master 3S Wireless Mouse"
+              className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            />
+            {errors.title && (
+              <p className="text-xs text-rose-400 mt-1">{errors.title.message}</p>
+            )}
           </div>
 
-          {/* Row 2: Category & Price & Discount */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
+          {/* Grid row: Category & SKU */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Category <span className="text-rose-400">*</span>
               </label>
               <select
                 {...register('category')}
-                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
-                  errors.category ? 'border-rose-500' : 'border-slate-800 focus:border-indigo-500'
-                } text-sm text-slate-100 focus:outline-none capitalize transition-all cursor-pointer`}
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
               >
-                <option value="">Select Category</option>
-                {categories.map((cat) => (
-                  <option key={cat.slug} value={cat.slug} className="capitalize">
-                    {cat.name}
+                {PRODUCT_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
                   </option>
                 ))}
               </select>
               {errors.category && (
-                <p className="text-xs text-rose-400 font-medium">{errors.category.message}</p>
+                <p className="text-xs text-rose-400 mt-1">{errors.category.message}</p>
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
-                Price ($) <span className="text-rose-400">*</span>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  SKU <span className="text-rose-400">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateSKU}
+                  className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Generate</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                {...register('sku')}
+                placeholder="e.g. LOGI-MXM3S-01"
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              {errors.sku && (
+                <p className="text-xs text-rose-400 mt-1">{errors.sku.message}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Grid row: Price & Stock & Rating */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                Price ($ USD) <span className="text-rose-400">*</span>
               </label>
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 {...register('price')}
-                placeholder="29.99"
-                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
-                  errors.price ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800 focus:border-indigo-500'
-                } text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition-all`}
+                placeholder="99.99"
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
               {errors.price && (
-                <p className="text-xs text-rose-400 font-medium">{errors.price.message}</p>
+                <p className="text-xs text-rose-400 mt-1">{errors.price.message}</p>
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
-                Discount (%)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                {...register('discountPercentage')}
-                placeholder="10"
-                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
-                  errors.discountPercentage ? 'border-rose-500' : 'border-slate-800 focus:border-indigo-500'
-                } text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition-all`}
-              />
-              {errors.discountPercentage && (
-                <p className="text-xs text-rose-400 font-medium">
-                  {errors.discountPercentage.message}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Row 3: Stock & Thumbnail URL */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Stock Quantity <span className="text-rose-400">*</span>
               </label>
               <input
                 type="number"
+                min="0"
                 {...register('stock')}
-                placeholder="50"
-                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
-                  errors.stock ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800 focus:border-indigo-500'
-                } text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition-all`}
+                placeholder="25"
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
               {errors.stock && (
-                <p className="text-xs text-rose-400 font-medium">{errors.stock.message}</p>
+                <p className="text-xs text-rose-400 mt-1">{errors.stock.message}</p>
               )}
             </div>
 
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
-                Thumbnail Image URL
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                Rating (0 - 5)
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  {...register('thumbnail')}
-                  placeholder="https://example.com/image.jpg"
-                  className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
-                    errors.thumbnail ? 'border-rose-500' : 'border-slate-800 focus:border-indigo-500'
-                  } text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition-all`}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setValue(
-                      'thumbnail',
-                      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=60'
-                    )
-                  }
-                  className="px-2.5 py-1 text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg whitespace-nowrap border border-slate-700"
-                  title="Use Sample Image"
-                >
-                  Sample
-                </button>
-              </div>
-              {errors.thumbnail && (
-                <p className="text-xs text-rose-400 font-medium">{errors.thumbnail.message}</p>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="5"
+                {...register('rating')}
+                placeholder="4.9"
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              {errors.rating && (
+                <p className="text-xs text-rose-400 mt-1">{errors.rating.message}</p>
               )}
             </div>
           </div>
 
-          {/* Image Preview if provided */}
-          {thumbnailValue && !previewError && (
-            <div className="flex items-center gap-3 p-2 bg-slate-950/60 rounded-xl border border-slate-800/80">
-              <div className="w-12 h-12 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden shrink-0">
-                <img
-                  src={thumbnailValue}
-                  alt="Preview"
-                  className="w-full h-full object-contain"
-                  onError={() => setPreviewError(true)}
-                />
-              </div>
-              <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Image preview loaded</span>
-              </div>
-            </div>
-          )}
+          {/* Tags */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              Tags (Comma separated)
+            </label>
+            <input
+              type="text"
+              {...register('tags')}
+              placeholder="mouse, ergonomic, wireless"
+              className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
 
           {/* Description */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-300">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
               Description <span className="text-rose-400">*</span>
             </label>
             <textarea
               rows={3}
               {...register('description')}
-              placeholder="Provide a detailed description of the product features, specs, and details..."
-              className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
-                errors.description ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800 focus:border-indigo-500'
-              } text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition-all resize-none`}
+              placeholder="Provide a detailed description of the product features, specs, and materials..."
+              className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
             />
             {errors.description && (
-              <p className="text-xs text-rose-400 font-medium">{errors.description.message}</p>
+              <p className="text-xs text-rose-400 mt-1">{errors.description.message}</p>
             )}
           </div>
 
           {/* Form Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
             <button
               type="button"
               onClick={handleClose}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-700/80 hover:bg-slate-800 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isPending}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 shadow-lg shadow-indigo-500/25 transition-all cursor-pointer disabled:opacity-50"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-lg shadow-indigo-500/25 disabled:opacity-50 transition-all cursor-pointer"
             >
-              {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{isEditing ? 'Save Changes' : 'Create Product'}</span>
             </button>
           </div>

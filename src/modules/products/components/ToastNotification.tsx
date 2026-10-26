@@ -1,8 +1,7 @@
-import React from 'react';
 import { useProductStore } from '../store/productStore';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
-export const ToastNotification: React.FC = () => {
+export const ToastNotification = () => {
   const { toast, hideToast } = useProductStore();
 
   if (!toast) return null;
@@ -31,7 +30,6 @@ export const ToastNotification: React.FC = () => {
         <button
           onClick={hideToast}
           className="ml-auto text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
-          aria-label="Dismiss notification"
         >
           <X className="w-4 h-4" />
         </button>

@@ -1,108 +1,182 @@
-import axios from 'axios';
+import type { ApiHealthResponse } from '../types/api';
 import type {
-  CategoryItem,
+  CategoryBreakdownItem,
   CreateProductInput,
   Product,
   ProductQueryParams,
   ProductsResponse,
+  ProductStatsResponse,
   UpdateProductInput,
 } from '../types/product';
-import apiClient from './api';
+import { apiClient } from './api';
+
+/**
+ * Normalizes a raw product object ensuring _id and id are accessible
+ */
+function normalizeProduct(raw: Record<string, unknown>): Product {
+  const _id = String(raw._id || raw.id || '');
+  return {
+    _id,
+    id: _id,
+    title: String(raw.title || ''),
+    description: String(raw.description || ''),
+    price: Number(raw.price || 0),
+    category: String(raw.category || 'Other'),
+    stock: Number(raw.stock || 0),
+    sku: String(raw.sku || ''),
+    rating: raw.rating !== undefined ? Number(raw.rating) : 0,
+    tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
+    createdAt: raw.createdAt ? String(raw.createdAt) : undefined,
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : undefined,
+  };
+}
 
 export const productService = {
   /**
-   * Fetch paginated list of products or filter by category/search
+   * Health check
    */
-  async getProducts(params: ProductQueryParams): Promise<ProductsResponse> {
-    const { limit = 12, skip = 0, q, category, sortBy, order } = params;
-
-    // Search query endpoint
-    if (q && q.trim()) {
-      const response = await apiClient.get<ProductsResponse>('/products/search', {
-        params: {
-          q: q.trim(),
-          limit,
-          skip,
-          sortBy,
-          order,
-        },
-      });
-      return response.data;
-    }
-
-    // Category endpoint
-    if (category && category !== 'all') {
-      const response = await apiClient.get<ProductsResponse>(`/products/category/${encodeURIComponent(category)}`, {
-        params: {
-          limit,
-          skip,
-          sortBy,
-          order,
-        },
-      });
-      return response.data;
-    }
-
-    // Default all products
-    const response = await apiClient.get<ProductsResponse>('/products', {
-      params: {
-        limit,
-        skip,
-        sortBy,
-        order,
-      },
-    });
+  async getHealth(): Promise<ApiHealthResponse> {
+    const response = await apiClient.get<ApiHealthResponse>('/health');
     return response.data;
   },
 
   /**
-   * Fetch single product by ID
+   * Fetch paginated and filtered list of products
    */
-  async getProductById(id: number): Promise<Product> {
-    const response = await apiClient.get<Product>(`/products/${id}`);
-    return response.data;
-  },
+  async getProducts(params?: ProductQueryParams): Promise<ProductsResponse> {
+    const cleanedParams: Record<string, unknown> = {};
 
-  /**
-   * Fetch product categories
-   */
-  async getCategories(): Promise<CategoryItem[]> {
-    const response = await apiClient.get<Array<string | CategoryItem>>('/products/categories');
-    
-    return response.data.map((cat) => {
-      if (typeof cat === 'string') {
-        return {
-          slug: cat,
-          name: cat.charAt(0).toUpperCase() + cat.slice(1).replace(/-/g, ' '),
-        };
+    if (params) {
+      if (params.page !== undefined) cleanedParams.page = params.page;
+      if (params.limit !== undefined) cleanedParams.limit = params.limit;
+      if (params.search && params.search.trim() !== '') {
+        cleanedParams.search = params.search.trim();
       }
-      return cat;
-    });
+      if (params.category && params.category !== 'all' && params.category.trim() !== '') {
+        cleanedParams.category = params.category.trim();
+      }
+      if (params.minPrice !== undefined && params.minPrice > 0) {
+        cleanedParams.minPrice = params.minPrice;
+      }
+      if (params.maxPrice !== undefined && params.maxPrice > 0) {
+        cleanedParams.maxPrice = params.maxPrice;
+      }
+      if (params.inStock !== undefined) {
+        cleanedParams.inStock = params.inStock;
+      }
+      if (params.sortBy && params.sortBy.trim() !== '') {
+        cleanedParams.sortBy = params.sortBy.trim();
+      }
+      if (params.sortOrder) {
+        cleanedParams.sortOrder = params.sortOrder;
+      }
+    }
+
+    const response = await apiClient.get('/products', { params: cleanedParams });
+    const data = response.data;
+
+    let productsList: Product[] = [];
+    let total = 0;
+    let page = params?.page || 1;
+    let limit = params?.limit || 10;
+    let totalPages = 1;
+
+    // Adapt various response payload envelopes gracefully
+    if (Array.isArray(data)) {
+      productsList = data.map(normalizeProduct);
+      total = productsList.length;
+    } else if (data && typeof data === 'object') {
+      const payload = data.data || data;
+
+      if (Array.isArray(payload)) {
+        productsList = payload.map(normalizeProduct);
+      } else if (Array.isArray(payload.products)) {
+        productsList = payload.products.map(normalizeProduct);
+      } else if (Array.isArray(data.products)) {
+        productsList = data.products.map(normalizeProduct);
+      }
+
+      const paginationSource = data.pagination || payload.pagination || data;
+      total =
+        paginationSource.total ??
+        data.total ??
+        payload.total ??
+        data.count ??
+        productsList.length;
+      page = paginationSource.page ?? data.page ?? params?.page ?? 1;
+      limit = paginationSource.limit ?? data.limit ?? params?.limit ?? 10;
+      totalPages = paginationSource.totalPages ?? data.totalPages ?? (Math.ceil(total / (limit || 10)) || 1);
+    }
+
+    return {
+      products: productsList,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, totalPages),
+    };
   },
 
   /**
-   * Add a new product (DummyJSON mock POST)
+   * Get single product by MongoDB ObjectId
    */
-  async createProduct(data: CreateProductInput): Promise<Product> {
-    const response = await axios.post<Product>('/products/add', data);
+  async getProductById(id: string): Promise<Product> {
+    const response = await apiClient.get(`/products/${id}`);
+    const data = response.data;
+    const raw = data.data ? data.data : data;
+    return normalizeProduct(raw);
+  },
+
+  /**
+   * Create a new product (POST /api/v1/products)
+   */
+  async createProduct(productData: CreateProductInput): Promise<Product> {
+    const response = await apiClient.post('/products', productData);
+    const data = response.data;
+    const raw = data.data ? data.data : data;
+    return normalizeProduct(raw);
+  },
+
+  /**
+   * Update product by ID (PUT /api/v1/products/:id)
+   */
+  async updateProduct(id: string, productData: UpdateProductInput): Promise<Product> {
+    const response = await apiClient.put(`/products/${id}`, productData);
+    const data = response.data;
+    const raw = data.data ? data.data : data;
+    return normalizeProduct(raw);
+  },
+
+  /**
+   * Delete product by ID (DELETE /api/v1/products/:id)
+   */
+  async deleteProduct(id: string): Promise<{ success: boolean; message?: string }> {
+    const response = await apiClient.delete(`/products/${id}`);
     return response.data;
   },
 
   /**
-   * Update an existing product (DummyJSON mock PUT)
+   * Analytics and statistics (GET /api/v1/products/analytics/stats)
    */
-  async updateProduct(id: number, data: UpdateProductInput): Promise<Product> {
-    const response = await apiClient.put<Product>(`/products/${id}`, data);
-    return response.data;
-  },
+  async getProductStats(): Promise<ProductStatsResponse> {
+    const response = await apiClient.get('/products/analytics/stats');
+    const data = response.data;
+    const stats = (data.data || data) as Record<string, unknown>;
 
-  /**
-   * Delete a product (DummyJSON mock DELETE)
-   */
-  async deleteProduct(id: number): Promise<{ id: number; isDeleted: boolean; deletedOn: string }> {
-    const response = await apiClient.delete<{ id: number; isDeleted: boolean; deletedOn: string }>(`/products/${id}`);
-    return response.data;
+    let categoryBreakdown: CategoryBreakdownItem[] = [];
+    if (Array.isArray(stats.categoryBreakdown)) {
+      categoryBreakdown = stats.categoryBreakdown.map((item) => ({
+        category: String(item.category || item._id || 'Unknown'),
+        count: Number(item.count || 0),
+        averagePrice: item.averagePrice !== undefined ? Number(item.averagePrice) : undefined,
+      }));
+    }
+
+    return {
+      totalProducts: Number(stats.totalProducts || stats.count || 0),
+      averagePrice: Number(stats.averagePrice || stats.avgPrice || 0),
+      totalStock: Number(stats.totalStock || stats.stock || 0),
+      categoryBreakdown,
+    };
   },
 };
-
-export default productService;

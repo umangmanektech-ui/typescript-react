@@ -1,78 +1,51 @@
-# React + TypeScript + Vite
+# Product Management Dashboard (React + TypeScript)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, high-performance Product Catalog & Inventory Management web application integrated with the Node.js / Express / MongoDB REST API (`/api/v1`).
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 API Integration Overview
 
-## React Compiler
+Base API URL: `http://localhost:5000/api/v1`
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+| Method | Endpoint | Description | Frontend Integration |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/health` | Health & uptime check | `useApiHealth()` hook with real-time status pill |
+| `GET` | `/api/v1/products` | Read all products (search, filters, pagination, sorting) | `useProducts(params)` hook & `ProductTable`/`ProductCard` |
+| `GET` | `/api/v1/products/:id` | Read single product by MongoDB ObjectId | `useProduct(id)` hook & `ProductDetailModal` |
+| `POST` | `/api/v1/products` | Create a new product (validated via Yup & Joi) | `useCreateProduct()` hook & `ProductFormModal` |
+| `PUT` | `/api/v1/products/:id` | Update product by ID | `useUpdateProduct()` hook & `ProductFormModal` |
+| `DELETE` | `/api/v1/products/:id` | Delete product by ID | `useDeleteProduct()` hook & `DeleteConfirmModal` |
+| `GET` | `/api/v1/products/analytics/stats` | Aggregated analytics & category breakdown | `useProductStats()` hook & `ProductStats` metric cards |
 
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
+---
 
-## Expanding the ESLint configuration
+## 🛠️ Architecture & Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Framework**: React 19 + TypeScript + Vite
+- **Styling**: Tailwind CSS v4 + Glassmorphism UI + Dark Theme
+- **Data Fetching & Cache**: TanStack React Query v5
+- **HTTP Client**: Axios with centralized error normalization and interceptors
+- **Global State**: Zustand (`useProductStore`)
+- **Form & Validation**: React Hook Form + Yup (synced with backend Joi schema)
+- **Icons**: Lucide React
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## ⚙️ Running Locally
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+### 1. Start the Backend API (port 5000)
+```bash
+cd ../typescript-node
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Start the Frontend Application (port 5173)
+```bash
+npm run dev
+```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+The frontend includes a Vite dev server proxy routing `/api` directly to `http://localhost:5000`. You can also configure a custom API base URL via the `.env` file:
+```env
+VITE_API_BASE_URL=http://localhost:5000/api/v1
 ```

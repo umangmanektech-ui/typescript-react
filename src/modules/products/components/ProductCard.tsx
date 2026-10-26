@@ -1,140 +1,140 @@
-import { AlertCircle, Edit3, Eye, PackageCheck, Star, Trash2 } from 'lucide-react';
+import { Eye, Edit3, Trash2, Star, Box, Tag } from 'lucide-react';
 import type { Product } from '../../../types/product';
 import { useProductStore } from '../store/productStore';
 
-
-
-export const ProductCard= ({ product }: {
+interface ProductCardProps {
   product: Product;
-}) => {
+}
+
+export const ProductCard = ({ product }: ProductCardProps) => {
   const { openViewModal, openEditModal, openDeleteModal } = useProductStore();
 
-  const originalPrice = product.discountPercentage
-    ? (product.price / (1 - product.discountPercentage / 100)).toFixed(2)
-    : null;
-
-  const isLowStock = product.stock > 0 && product.stock <= 10;
   const isOutOfStock = product.stock <= 0;
+  const isLowStock = product.stock > 0 && product.stock <= 5;
+
+  const categoryColors: Record<string, string> = {
+    Electronics: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    Computers: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+    Accessories: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+    Audio: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    Gaming: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
+    Wearables: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    'Home & Kitchen': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    Other: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+  };
+
+  const badgeClass =
+    categoryColors[product.category] || categoryColors.Other;
 
   return (
-    <div className="group flex flex-col justify-between rounded-2xl bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800/80 hover:border-indigo-500/40 p-4 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1">
+    <div className="group glass-card rounded-2xl p-5 border border-slate-800/80 hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 flex flex-col justify-between relative overflow-hidden">
+      {/* Top Header: Category & Stock Status */}
       <div>
-        {/* Thumbnail & Badges Container */}
-        <div className="relative aspect-square w-full rounded-xl bg-slate-950/80 overflow-hidden mb-3 border border-slate-800/50 flex items-center justify-center">
-          <img
-            src={product.thumbnail || product.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=60'}
-            alt={product.title}
-            className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=60';
-            }}
-          />
-
-          {/* Discount Pill */}
-          {product.discountPercentage && product.discountPercentage > 0 && (
-            <div className="absolute top-2 left-2 bg-rose-500/90 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">
-              -{Math.round(product.discountPercentage)}%
-            </div>
-          )}
-
-          {/* Stock Badge */}
-          <div className="absolute top-2 right-2">
-            {isOutOfStock ? (
-              <span className="flex items-center gap-1 bg-red-950/90 text-red-300 border border-red-500/30 text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
-                <AlertCircle className="w-3 h-3 text-red-400" /> Out of Stock
-              </span>
-            ) : isLowStock ? (
-              <span className="flex items-center gap-1 bg-amber-950/90 text-amber-300 border border-amber-500/30 text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
-                <AlertCircle className="w-3 h-3 text-amber-400" /> Only {product.stock} left
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 bg-emerald-950/90 text-emerald-300 border border-emerald-500/30 text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
-                <PackageCheck className="w-3 h-3 text-emerald-400" /> In Stock ({product.stock})
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Category & Brand */}
-        <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-          <span className="capitalize font-medium text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <span
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg border tracking-wide ${badgeClass}`}
+          >
             {product.category}
           </span>
-          {product.brand && (
-            <span className="truncate max-w-[120px] text-slate-400 text-[11px]">
-              {product.brand}
-            </span>
-          )}
+
+          <span
+            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+              isOutOfStock
+                ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                : isLowStock
+                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+            }`}
+          >
+            {isOutOfStock ? 'Out of Stock' : isLowStock ? `Low (${product.stock})` : `${product.stock} in stock`}
+          </span>
         </div>
 
-        {/* Title */}
+        {/* Product Title */}
         <h3
           onClick={() => openViewModal(product)}
-          className="text-sm sm:text-base font-semibold text-slate-100 hover:text-indigo-400 transition-colors line-clamp-1 cursor-pointer mb-1"
+          className="text-base font-bold text-white group-hover:text-indigo-300 transition-colors line-clamp-1 cursor-pointer"
           title={product.title}
         >
           {product.title}
         </h3>
 
-        {/* Description */}
-        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-3">
+        {/* SKU indicator */}
+        {product.sku && (
+          <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-400 font-mono">
+            <Box className="w-3.5 h-3.5 text-slate-500" />
+            <span>{product.sku}</span>
+          </div>
+        )}
+
+        {/* Product Description */}
+        <p className="mt-2.5 text-xs text-slate-400 line-clamp-2 leading-relaxed">
           {product.description}
         </p>
+
+        {/* Tags */}
+        {product.tags && product.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {product.tags.slice(0, 3).map((tag, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900/80 text-[10px] text-slate-300 border border-slate-800"
+              >
+                <Tag className="w-2.5 h-2.5 opacity-60" />
+                {tag}
+              </span>
+            ))}
+            {product.tags.length > 3 && (
+              <span className="text-[10px] text-slate-500 self-center">
+                +{product.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Footer Area: Price, Rating & Actions */}
-      <div className="pt-3 border-t border-slate-800/80">
-        <div className="flex items-center justify-between mb-3">
-          {/* Price */}
-          <div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-lg font-bold text-white">
-                ${product.price.toFixed(2)}
-              </span>
-              {originalPrice && (
-                <span className="text-xs text-slate-500 line-through">
-                  ${originalPrice}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Rating */}
-          <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-semibold text-slate-200">
-              {product.rating ? product.rating.toFixed(1) : '4.5'}
+      {/* Footer: Price, Rating & Actions */}
+      <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between">
+        <div>
+          <span className="text-xs text-slate-400 block font-medium">Price</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl font-black text-white tracking-tight">
+              ${Number(product.price).toFixed(2)}
             </span>
+            {product.rating !== undefined && product.rating > 0 && (
+              <div className="flex items-center gap-1 text-xs font-semibold text-amber-400">
+                <Star className="w-3 h-3 fill-amber-400 stroke-amber-400" />
+                <span>{product.rating.toFixed(1)}</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="flex items-center gap-1.5">
           <button
+            type="button"
             onClick={() => openViewModal(product)}
-            className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium border border-slate-700/50 transition-colors cursor-pointer"
-            title="View Product Details"
+            className="p-2 rounded-xl text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 border border-transparent hover:border-indigo-500/20 transition-all cursor-pointer"
+            title="View Details"
           >
-            <Eye className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">View</span>
+            <Eye className="w-4 h-4" />
           </button>
           <button
+            type="button"
             onClick={() => openEditModal(product)}
-            className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-300 hover:text-indigo-200 text-xs font-medium border border-indigo-500/30 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 transition-all cursor-pointer"
             title="Edit Product"
           >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Edit</span>
+            <Edit3 className="w-4 h-4" />
           </button>
           <button
+            type="button"
             onClick={() => openDeleteModal(product)}
-            className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 hover:text-rose-200 text-xs font-medium border border-rose-500/30 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
             title="Delete Product"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Delete</span>
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>

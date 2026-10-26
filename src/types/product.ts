@@ -1,76 +1,90 @@
+export type ProductCategory =
+  | 'Electronics'
+  | 'Computers'
+  | 'Accessories'
+  | 'Audio'
+  | 'Gaming'
+  | 'Wearables'
+  | 'Home & Kitchen'
+  | 'Other';
+
+export const PRODUCT_CATEGORIES: ProductCategory[] = [
+  'Electronics',
+  'Computers',
+  'Accessories',
+  'Audio',
+  'Gaming',
+  'Wearables',
+  'Home & Kitchen',
+  'Other',
+];
+
 export interface Product {
-  id: number;
+  _id: string;
+  id?: string;
   title: string;
   description: string;
-  category: string;
   price: number;
-  discountPercentage?: number;
-  rating?: number;
+  category: ProductCategory | string;
   stock: number;
+  sku: string;
+  rating?: number;
   tags?: string[];
-  brand?: string;
-  sku?: string;
-  weight?: number;
-  dimensions?: {
-    width: number;
-    height: number;
-    depth: number;
-  };
-  warrantyInformation?: string;
-  shippingInformation?: string;
-  availabilityStatus?: string;
-  reviews?: Array<{
-    rating: number;
-    comment: string;
-    date: string;
-    reviewerName: string;
-    reviewerEmail: string;
-  }>;
-  returnPolicy?: string;
-  minimumOrderQuantity?: number;
-  meta?: {
-    createdAt: string;
-    updatedAt: string;
-    barcode: string;
-    qrCode: string;
-  };
-  images?: string[];
-  thumbnail?: string;
-}
-
-export interface ProductsResponse {
-  products: Product[];
-  total: number;
-  skip: number;
-  limit: number;
-}
-
-export interface CategoryItem {
-  slug: string;
-  name: string;
-  url?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateProductInput {
   title: string;
   description: string;
   price: number;
-  discountPercentage?: number;
-  stock: number;
-  brand?: string;
   category: string;
-  thumbnail?: string;
+  stock: number;
+  sku: string;
+  rating?: number;
+  tags?: string[];
 }
 
-export interface UpdateProductInput extends CreateProductInput {
-  id: number;
+export interface UpdateProductInput {
+  title?: string;
+  description?: string;
+  price?: number;
+  category?: string;
+  stock?: number;
+  sku?: string;
+  rating?: number;
+  tags?: string[];
 }
 
 export interface ProductQueryParams {
+  page?: number;
   limit?: number;
-  skip?: number;
-  q?: string;
+  search?: string;
   category?: string;
-  sortBy?: string;
-  order?: 'asc' | 'desc';
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
+  sortBy?: 'createdAt' | 'price' | 'title' | 'stock' | 'rating' | string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface ProductsResponse {
+  products: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CategoryBreakdownItem {
+  category: string;
+  count: number;
+  averagePrice?: number;
+}
+
+export interface ProductStatsResponse {
+  totalProducts: number;
+  averagePrice: number;
+  totalStock: number;
+  categoryBreakdown?: CategoryBreakdownItem[];
 }
